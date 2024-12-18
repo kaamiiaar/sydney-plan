@@ -145,6 +145,14 @@ const styles = `
         padding-bottom: 10px;
         border-bottom: 2px solid #eee;
     }
+    
+    .day-overview {
+        color: #666;
+        font-size: 0.9em;
+        margin-bottom: 20px;
+        line-height: 1.4;
+        padding: 0 10px;
+    }
 `;
 
 // Add stylesheet
@@ -171,6 +179,32 @@ Object.entries(dailyAttractions).forEach(([day, attractions]) => {
   const dayTitle = document.createElement("h2");
   dayTitle.textContent = day;
   daySection.appendChild(dayTitle);
+
+  // Add day overview
+  const dayOverview = document.createElement("div");
+  dayOverview.className = "day-overview";
+
+  // Set overview text based on the day
+  let overviewText = "";
+  if (day.includes("Dec 29")) {
+    overviewText =
+      "10:15 AM: Arrive in Sydney • Meet with cousin • Store luggage • Explore Circular Quay area • 3:00 PM: Check into Airbnb • Evening: Family dinner in Macquarie Park area";
+  } else if (day.includes("Dec 30")) {
+    overviewText =
+      "Morning: Sydney Harbour Bridge Climb • Lunch at The Rocks • Afternoon: Ferry to Manly Beach • Beach time and coastal walk • Evening: Dinner at Manly Wharf";
+  } else if (day.includes("Dec 31")) {
+    overviewText =
+      "Morning: Visit Taronga Zoo • Afternoon: Prepare for NYE celebrations • Evening: New Year's Eve festivities and fireworks viewing";
+  } else if (day.includes("Jan 1")) {
+    overviewText =
+      "Late start (New Year's Day) • Brunch in local cafe • Visit Chinese Garden of Friendship • Darling Harbour exploration • Evening: Family time at Airbnb";
+  } else if (day.includes("Jan 2")) {
+    overviewText =
+      "Morning: Visit Bondi Beach • Walk the Bondi to Bronte coastal path • Lunch at Bondi • Afternoon: Shopping at Westfield Bondi Junction • Evening: Family farewell dinner";
+  }
+
+  dayOverview.textContent = overviewText;
+  daySection.appendChild(dayOverview);
 
   // Add attractions for this day
   attractions.forEach((attraction) => {
