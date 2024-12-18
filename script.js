@@ -1,31 +1,87 @@
-// Define the Sydney attractions with their details
-const sydneyAttractions = [
-  {
-    name: "Sydney Opera House",
-    details: "Iconic architectural masterpiece, UNESCO World Heritage site",
-    area: "Circular Quay",
-  },
-  {
-    name: "Sydney Harbour Bridge",
-    details: "Climb the bridge for spectacular views",
-    area: "The Rocks",
-  },
-  {
-    name: "Bondi Beach",
-    details: "Famous beach culture, coastal walks, surfing",
-    area: "Eastern Suburbs",
-  },
-  {
-    name: "Darling Harbour",
-    details: "Entertainment precinct, aquarium, maritime museum",
-    area: "City Center",
-  },
-  {
-    name: "The Rocks",
-    details: "Historic district, weekend markets, galleries",
-    area: "City Center",
-  },
-];
+// Define the Sydney attractions grouped by day
+const dailyAttractions = {
+  "Day 1 - Sunday, Dec 29": [
+    {
+      name: "Circular Quay",
+      details: "Central transport hub with great views",
+      area: "City Center",
+    },
+    {
+      name: "Sydney Opera House",
+      details: "Iconic architectural masterpiece, UNESCO World Heritage site",
+      area: "Circular Quay",
+    },
+    {
+      name: "Royal Botanic Gardens",
+      details: "Beautiful gardens with harbor views, perfect for walking",
+      area: "City Center",
+    },
+  ],
+  "Day 2 - Monday, Dec 30": [
+    {
+      name: "Sydney Harbour Bridge Climb",
+      details: "Pre-booked climb experience with panoramic views",
+      area: "The Rocks",
+    },
+    {
+      name: "The Rocks",
+      details: "Historic district, weekend markets, galleries",
+      area: "City Center",
+    },
+    {
+      name: "Manly Beach",
+      details: "Beautiful beach area with coastal walks",
+      area: "Northern Beaches",
+    },
+  ],
+  "Day 3 - Tuesday, Dec 31": [
+    {
+      name: "Taronga Zoo",
+      details: "Famous zoo with Australian wildlife and harbor views",
+      area: "North Shore",
+    },
+    {
+      name: "NYE Fireworks Viewing",
+      details:
+        "Choose from: Mrs Macquarie's Point, Bradfield Park, or Opera House area",
+      area: "Various Locations",
+    },
+  ],
+  "Day 4 - Wednesday, Jan 1": [
+    {
+      name: "Chinese Garden of Friendship",
+      details: "Beautiful traditional Chinese garden",
+      area: "Darling Harbour",
+    },
+    {
+      name: "Darling Harbour",
+      details: "Entertainment precinct, aquarium, maritime museum",
+      area: "City Center",
+    },
+    {
+      name: "SEA LIFE Aquarium",
+      details: "Optional visit - great for kids",
+      area: "Darling Harbour",
+    },
+  ],
+  "Day 5 - Thursday, Jan 2": [
+    {
+      name: "Bondi Beach",
+      details: "Famous beach culture, coastal walks, surfing",
+      area: "Eastern Suburbs",
+    },
+    {
+      name: "Bondi to Bronte Walk",
+      details: "Scenic coastal walking trail",
+      area: "Eastern Suburbs",
+    },
+    {
+      name: "Westfield Bondi Junction",
+      details: "Shopping center for retail therapy",
+      area: "Eastern Suburbs",
+    },
+  ],
+};
 
 // Add styles dynamically
 const styles = `
@@ -74,6 +130,21 @@ const styles = `
         font-size: 0.9em;
         font-style: italic;
     }
+    
+    .day-section {
+        margin-bottom: 40px;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 20px;
+    }
+    
+    .day-section h2 {
+        color: #2c3e50;
+        margin-top: 0;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #eee;
+    }
 `;
 
 // Add stylesheet
@@ -84,34 +155,48 @@ document.head.appendChild(styleSheet);
 // Create and populate the container
 const container = document.getElementById("container");
 
-// Add title
-const title = document.createElement("h1");
-title.textContent = "Sydney Travel Checklist";
-title.style.textAlign = "center";
-container.appendChild(title);
+// Add main title
+const mainTitle = document.createElement("h1");
+mainTitle.textContent = "Sydney Travel Checklist";
+mainTitle.style.textAlign = "center";
+container.appendChild(mainTitle);
 
-// Add attractions
-sydneyAttractions.forEach((attraction) => {
-  const item = document.createElement("div");
-  item.className = "attraction-item";
+// Create sections for each day
+Object.entries(dailyAttractions).forEach(([day, attractions]) => {
+  // Create day section
+  const daySection = document.createElement("div");
+  daySection.className = "day-section";
 
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.className = "checkbox";
-  checkbox.addEventListener("change", () => {
-    item.classList.toggle("checked", checkbox.checked);
-  });
+  // Add day title
+  const dayTitle = document.createElement("h2");
+  dayTitle.textContent = day;
+  daySection.appendChild(dayTitle);
 
-  const content = document.createElement("div");
-  content.className = "attraction-content";
+  // Add attractions for this day
+  attractions.forEach((attraction) => {
+    const item = document.createElement("div");
+    item.className = "attraction-item";
 
-  content.innerHTML = `
-        <div class="attraction-name">${attraction.name}</div>
-        <div class="attraction-details">${attraction.details}</div>
-        <div class="attraction-area">📍 ${attraction.area}</div>
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "checkbox";
+    checkbox.addEventListener("change", () => {
+      item.classList.toggle("checked", checkbox.checked);
+    });
+
+    const content = document.createElement("div");
+    content.className = "attraction-content";
+
+    content.innerHTML = `
+      <div class="attraction-name">${attraction.name}</div>
+      <div class="attraction-details">${attraction.details}</div>
+      <div class="attraction-area">📍 ${attraction.area}</div>
     `;
 
-  item.appendChild(checkbox);
-  item.appendChild(content);
-  container.appendChild(item);
+    item.appendChild(checkbox);
+    item.appendChild(content);
+    daySection.appendChild(item);
+  });
+
+  container.appendChild(daySection);
 });
