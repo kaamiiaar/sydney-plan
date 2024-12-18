@@ -1,20 +1,76 @@
-// Define the Sydney attractions grouped by day
+// Add this at the start of your file
+const FLICKR_API_KEY = "087a5964e56a78539f2cbc042de6f92a"; // You'll need to get this from Flickr
+
+async function getFlickrImageUrl(searchTerm) {
+  const endpoint = `https://www.flickr.com/services/rest/?method=flickr.photos.search&api_key=${FLICKR_API_KEY}&text=${encodeURIComponent(
+    searchTerm
+  )}&sort=relevance&per_page=1&format=json&nojsoncallback=1&license=2,4,5,7&content_type=1&media=photos&safe_search=1&extras=url_c`;
+
+  try {
+    // Add error handling for network issues
+    if (!navigator.onLine) {
+      console.log("No internet connection available");
+      return null;
+    }
+
+    const response = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      mode: "cors", // Explicitly set CORS mode
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+
+    if (data.stat === "fail") {
+      console.error("Flickr API error:", data.message);
+      return null;
+    }
+
+    if (data.photos && data.photos.photo && data.photos.photo[0]) {
+      const photo = data.photos.photo[0];
+      const imageUrl = `https://live.staticflickr.com/${photo.server}/${photo.id}_${photo.secret}_c.jpg`;
+
+      // Verify the image URL is accessible
+      const imgResponse = await fetch(imageUrl, { method: "HEAD" });
+      if (!imgResponse.ok) {
+        console.error("Image URL not accessible:", imageUrl);
+        return null;
+      }
+
+      return imageUrl;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching Flickr image:", error);
+    return "https://via.placeholder.com/120x80?text=Image+Unavailable"; // Fallback image
+  }
+}
+
+// Update the attractions data to include search terms
 const dailyAttractions = {
   "Day 1 - Sunday, Dec 29": [
     {
       name: "Circular Quay",
       details: "Central transport hub with great views",
       area: "City Center",
+      searchTerm: "Circular Quay Sydney",
     },
     {
       name: "Sydney Opera House",
       details: "Iconic architectural masterpiece, UNESCO World Heritage site",
       area: "Circular Quay",
+      searchTerm: "Sydney Opera House Sydney",
     },
     {
       name: "Royal Botanic Gardens",
       details: "Beautiful gardens with harbor views, perfect for walking",
       area: "City Center",
+      searchTerm: "Royal Botanic Gardens Sydney",
     },
   ],
   "Day 2 - Monday, Dec 30": [
@@ -22,16 +78,19 @@ const dailyAttractions = {
       name: "Sydney Harbour Bridge Climb",
       details: "Pre-booked climb experience with panoramic views",
       area: "The Rocks",
+      searchTerm: "Sydney Harbour Bridge Climb Sydney",
     },
     {
       name: "The Rocks",
       details: "Historic district, weekend markets, galleries",
       area: "City Center",
+      searchTerm: "The Rocks Sydney",
     },
     {
       name: "Manly Beach",
       details: "Beautiful beach area with coastal walks",
       area: "Northern Beaches",
+      searchTerm: "Manly Beach Sydney",
     },
   ],
   "Day 3 - Tuesday, Dec 31": [
@@ -39,12 +98,14 @@ const dailyAttractions = {
       name: "Taronga Zoo",
       details: "Famous zoo with Australian wildlife and harbor views",
       area: "North Shore",
+      searchTerm: "Taronga Zoo Sydney",
     },
     {
       name: "NYE Fireworks Viewing",
       details:
         "Choose from: Mrs Macquarie's Point, Bradfield Park, or Opera House area",
       area: "Various Locations",
+      searchTerm: "NYE Fireworks Viewing Sydney",
     },
   ],
   "Day 4 - Wednesday, Jan 1": [
@@ -52,16 +113,19 @@ const dailyAttractions = {
       name: "Chinese Garden of Friendship",
       details: "Beautiful traditional Chinese garden",
       area: "Darling Harbour",
+      searchTerm: "Chinese Garden of Friendship Sydney",
     },
     {
       name: "Darling Harbour",
       details: "Entertainment precinct, aquarium, maritime museum",
       area: "City Center",
+      searchTerm: "Darling Harbour Sydney",
     },
     {
       name: "SEA LIFE Aquarium",
       details: "Optional visit - great for kids",
       area: "Darling Harbour",
+      searchTerm: "SEA LIFE Aquarium Sydney",
     },
   ],
   "Day 5 - Thursday, Jan 2": [
@@ -69,16 +133,19 @@ const dailyAttractions = {
       name: "Bondi Beach",
       details: "Famous beach culture, coastal walks, surfing",
       area: "Eastern Suburbs",
+      searchTerm: "Bondi Beach Sydney",
     },
     {
       name: "Bondi to Bronte Walk",
       details: "Scenic coastal walking trail",
       area: "Eastern Suburbs",
+      searchTerm: "Bondi to Bronte Walk Sydney",
     },
     {
       name: "Westfield Bondi Junction",
       details: "Shopping center for retail therapy",
       area: "Eastern Suburbs",
+      searchTerm: "Westfield Bondi Junction Sydney",
     },
   ],
 };
@@ -99,6 +166,7 @@ const styles = `
         border-radius: 8px;
         display: flex;
         align-items: flex-start;
+        gap: 15px;
     }
     
     .attraction-item.checked {
@@ -153,6 +221,13 @@ const styles = `
         line-height: 1.4;
         padding: 0 10px;
     }
+    
+    .attraction-image {
+        width: 120px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
 `;
 
 // Add stylesheet
@@ -163,74 +238,172 @@ document.head.appendChild(styleSheet);
 // Create and populate the container
 const container = document.getElementById("container");
 
-// Add main title
-const mainTitle = document.createElement("h1");
-mainTitle.textContent = "Sydney Travel Checklist";
-mainTitle.style.textAlign = "center";
-container.appendChild(mainTitle);
+// Update the attraction item creation code
+function renderAttractions() {
+  const container = document.getElementById("container");
+  container.innerHTML = ""; // Clear existing content
 
-// Create sections for each day
-Object.entries(dailyAttractions).forEach(([day, attractions]) => {
-  // Create day section
-  const daySection = document.createElement("div");
-  daySection.className = "day-section";
+  // Add main title
+  const mainTitle = document.createElement("h1");
+  mainTitle.textContent = "Sydney Travel Checklist";
+  mainTitle.style.textAlign = "center";
+  container.appendChild(mainTitle);
 
-  // Add day title
-  const dayTitle = document.createElement("h2");
-  dayTitle.textContent = day;
-  daySection.appendChild(dayTitle);
+  // Create sections for each day
+  Object.entries(dailyAttractions).forEach(([day, attractions]) => {
+    const daySection = document.createElement("div");
+    daySection.className = "day-section";
 
-  // Add day overview
-  const dayOverview = document.createElement("div");
-  dayOverview.className = "day-overview";
+    // Add day title
+    const dayTitle = document.createElement("h2");
+    dayTitle.textContent = day;
+    daySection.appendChild(dayTitle);
 
-  // Set overview text based on the day
-  let overviewText = "";
-  if (day.includes("Dec 29")) {
-    overviewText =
-      "10:15 AM: Arrive in Sydney • Meet with cousin • Store luggage • Explore Circular Quay area • 3:00 PM: Check into Airbnb • Evening: Family dinner in Macquarie Park area";
-  } else if (day.includes("Dec 30")) {
-    overviewText =
-      "Morning: Sydney Harbour Bridge Climb • Lunch at The Rocks • Afternoon: Ferry to Manly Beach • Beach time and coastal walk • Evening: Dinner at Manly Wharf";
-  } else if (day.includes("Dec 31")) {
-    overviewText =
-      "Morning: Visit Taronga Zoo • Afternoon: Prepare for NYE celebrations • Evening: New Year's Eve festivities and fireworks viewing";
-  } else if (day.includes("Jan 1")) {
-    overviewText =
-      "Late start (New Year's Day) • Brunch in local cafe • Visit Chinese Garden of Friendship • Darling Harbour exploration • Evening: Family time at Airbnb";
-  } else if (day.includes("Jan 2")) {
-    overviewText =
-      "Morning: Visit Bondi Beach • Walk the Bondi to Bronte coastal path • Lunch at Bondi • Afternoon: Shopping at Westfield Bondi Junction • Evening: Family farewell dinner";
-  }
+    // Add day overview
+    const dayOverview = document.createElement("div");
+    dayOverview.className = "day-overview";
 
-  dayOverview.textContent = overviewText;
-  daySection.appendChild(dayOverview);
+    // Set overview text based on the day
+    let overviewText = "";
+    if (day.includes("Dec 29")) {
+      overviewText =
+        "10:15 AM: Arrive in Sydney • Meet with cousin • Store luggage • Explore Circular Quay area • 3:00 PM: Check into Airbnb • Evening: Family dinner in Macquarie Park area";
+    } else if (day.includes("Dec 30")) {
+      overviewText =
+        "Morning: Sydney Harbour Bridge Climb • Lunch at The Rocks • Afternoon: Ferry to Manly Beach • Beach time and coastal walk • Evening: Dinner at Manly Wharf";
+    } else if (day.includes("Dec 31")) {
+      overviewText =
+        "Morning: Visit Taronga Zoo • Afternoon: Prepare for NYE celebrations • Evening: New Year's Eve festivities and fireworks viewing";
+    } else if (day.includes("Jan 1")) {
+      overviewText =
+        "Late start (New Year's Day) • Brunch in local cafe • Visit Chinese Garden of Friendship • Darling Harbour exploration • Evening: Family time at Airbnb";
+    } else if (day.includes("Jan 2")) {
+      overviewText =
+        "Morning: Visit Bondi Beach • Walk the Bondi to Bronte coastal path • Lunch at Bondi • Afternoon: Shopping at Westfield Bondi Junction • Evening: Family farewell dinner";
+    }
 
-  // Add attractions for this day
-  attractions.forEach((attraction) => {
-    const item = document.createElement("div");
-    item.className = "attraction-item";
+    dayOverview.textContent = overviewText;
+    daySection.appendChild(dayOverview);
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.className = "checkbox";
-    checkbox.addEventListener("change", () => {
-      item.classList.toggle("checked", checkbox.checked);
+    // Add attractions for this day
+    attractions.forEach((attraction) => {
+      const item = document.createElement("div");
+      item.className = "attraction-item";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "checkbox";
+      checkbox.addEventListener("change", () => {
+        item.classList.toggle("checked", checkbox.checked);
+      });
+
+      const image = document.createElement("img");
+      image.className = "attraction-image";
+      image.alt = attraction.name;
+      // Only set the src if we have an image URL
+      if (attraction.image) {
+        image.src = attraction.image;
+      } else {
+        image.src = "https://via.placeholder.com/120x80?text=Loading...";
+      }
+
+      const content = document.createElement("div");
+      content.className = "attraction-content";
+
+      content.innerHTML = `
+        <div class="attraction-name">${attraction.name}</div>
+        <div class="attraction-details">${attraction.details}</div>
+        <div class="attraction-area">📍 ${attraction.area}</div>
+      `;
+
+      item.appendChild(checkbox);
+      item.appendChild(image);
+      item.appendChild(content);
+      daySection.appendChild(item);
     });
 
-    const content = document.createElement("div");
-    content.className = "attraction-content";
-
-    content.innerHTML = `
-      <div class="attraction-name">${attraction.name}</div>
-      <div class="attraction-details">${attraction.details}</div>
-      <div class="attraction-area">📍 ${attraction.area}</div>
-    `;
-
-    item.appendChild(checkbox);
-    item.appendChild(content);
-    daySection.appendChild(item);
+    container.appendChild(daySection);
   });
+}
 
-  container.appendChild(daySection);
-});
+async function convertImageToBase64(imageUrl) {
+  try {
+    const response = await fetch(imageUrl);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Failed to convert image to base64:", error);
+    return null;
+  }
+}
+
+async function initializeAttractions() {
+  renderAttractions(); // First render with placeholders
+
+  // Try to load cached images from localStorage
+  const cachedImages = JSON.parse(
+    localStorage.getItem("attractionImages") || "{}"
+  );
+
+  try {
+    const updatedImages = {};
+
+    for (const [day, attractions] of Object.entries(dailyAttractions)) {
+      for (const attraction of attractions) {
+        try {
+          // Check if we have a cached image
+          if (cachedImages[attraction.name]) {
+            attraction.image = cachedImages[attraction.name];
+            continue;
+          }
+
+          const imageUrl = await getFlickrImageUrl(
+            attraction.searchTerm || attraction.name
+          );
+
+          if (imageUrl && !imageUrl.includes("placeholder")) {
+            // Convert image to base64 and store it
+            const base64Image = await convertImageToBase64(imageUrl);
+            if (base64Image) {
+              attraction.image = base64Image;
+              updatedImages[attraction.name] = base64Image;
+            } else {
+              attraction.image =
+                "https://via.placeholder.com/120x80?text=No+Image";
+              updatedImages[attraction.name] = attraction.image;
+            }
+          } else {
+            attraction.image =
+              "https://via.placeholder.com/120x80?text=No+Image";
+            updatedImages[attraction.name] = attraction.image;
+          }
+        } catch (error) {
+          console.warn(`Failed to load image for ${attraction.name}:`, error);
+          attraction.image = "https://via.placeholder.com/120x80?text=Error";
+          updatedImages[attraction.name] = attraction.image;
+        }
+      }
+    }
+
+    // Update the cache with new images
+    localStorage.setItem(
+      "attractionImages",
+      JSON.stringify({
+        ...cachedImages,
+        ...updatedImages,
+      })
+    );
+
+    renderAttractions(); // Re-render with actual images
+  } catch (error) {
+    console.error("Failed to initialize attractions:", error);
+  }
+}
+
+// Call this instead of directly rendering
+initializeAttractions();
