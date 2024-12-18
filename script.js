@@ -1,6 +1,11 @@
 // Add this at the start of your file
 const FLICKR_API_KEY = "087a5964e56a78539f2cbc042de6f92a"; // You'll need to get this from Flickr
 
+// Add Supabase client initialization at the top of the file
+const SUPABASE_URL = "https://bkqvzvrzjolpesrkgyvh.supabase.co";
+const SUPABASE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrcXZ6dnJ6am9scGVzcmtneXZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ0ODE0NDQsImV4cCI6MjA1MDA1NzQ0NH0.IJGy4mrtblAJkd5ufFQf4UOdezB8WqE5EWMG5yKe48c";
+
 async function getFlickrImageUrl(searchTerm) {
   const endpoint = `https://www.flickr.com/services/rest/?method=flickr.photos.search&api_key=${FLICKR_API_KEY}&text=${encodeURIComponent(
     searchTerm
@@ -228,6 +233,25 @@ const styles = `
         object-fit: cover;
         border-radius: 4px;
     }
+    
+    .save-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 24px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: background-color 0.3s;
+    }
+    
+    .save-button:hover {
+        background-color: #45a049;
+    }
 `;
 
 // Add stylesheet
@@ -324,6 +348,13 @@ function renderAttractions() {
 
     container.appendChild(daySection);
   });
+
+  // Add save button
+  const saveButton = document.createElement("button");
+  saveButton.className = "save-button";
+  saveButton.textContent = "Save Progress";
+  saveButton.addEventListener("click", saveToSupabase);
+  container.appendChild(saveButton);
 }
 
 async function convertImageToBase64(imageUrl) {
@@ -407,3 +438,51 @@ async function initializeAttractions() {
 
 // Call this instead of directly rendering
 initializeAttractions();
+
+// Add function to save data to Supabase
+async function saveToSupabase() {
+  try {
+    const checkedAttractions = [];
+    document.querySelectorAll(".attraction-item").forEach((item) => {
+      const checkbox = item.querySelector(".checkbox");
+      const name = item.querySelector(".attraction-name").textContent;
+      const area = item
+        .querySelector(".attraction-area")
+        .textContent.replace("📍 ", "");
+      const details = item.querySelector(".attraction-details").textContent;
+
+      if (checkbox.checked) {
+        checkedAttractions.push({
+          destination_name: name, // Changed to match table column
+          area: area,
+          details: details,
+          checked: true,
+          checked_at: new Date().toISOString(),
+        });
+      }
+    });
+
+    // Using the 'destinations' table instead of 'locations'
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/destinations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(checkedAttractions),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to save data: ${response.status} ${response.statusText}`
+      );
+    }
+
+    alert("Progress saved successfully!");
+  } catch (error) {
+    console.error("Error saving to Supabase:", error);
+    alert("Failed to save progress. Please try again.");
+  }
+}
