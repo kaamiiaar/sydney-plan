@@ -102,18 +102,27 @@ styleSheet.textContent = styles;
 document.head.appendChild(styleSheet);
 
 async function fetchSavedChoices() {
+  // Show loading state immediately
+  const container = document.getElementById("container");
+  container.innerHTML = '<div class="loading">Loading saved choices...</div>';
+
+  // Initialize Supabase client outside the try block
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
   try {
-    const container = document.getElementById("container");
-    container.innerHTML = '<div class="loading">Loading saved choices...</div>';
+    // Add timeout to handle very slow responses
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out")), 5000)
+    );
 
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    // Fetch the most recent entry
-    const { data, error } = await supabase
+    const fetchPromise = supabase
       .from("destinations")
       .select("*")
       .order("last_updated", { ascending: false })
       .limit(1);
+
+    // Race between fetch and timeout
+    const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (error) throw error;
 
@@ -186,5 +195,8 @@ async function fetchSavedChoices() {
   }
 }
 
+// Initialize Supabase client once, outside the function
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 // Initialize the page
-fetchSavedChoices();
+document.addEventListener("DOMContentLoaded", fetchSavedChoices);
