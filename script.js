@@ -349,12 +349,51 @@ function renderAttractions() {
     container.appendChild(daySection);
   });
 
+  // Add button container for both buttons
+  const buttonContainer = document.createElement("div");
+  buttonContainer.style.position = "fixed";
+  buttonContainer.style.bottom = "20px";
+  buttonContainer.style.right = "20px";
+  buttonContainer.style.display = "flex";
+  buttonContainer.style.flexDirection = "column"; // Stack buttons vertically
+  buttonContainer.style.gap = "10px"; // Space between buttons
+  buttonContainer.style.zIndex = "1000"; // Ensure buttons are on top
+
+  // Add view saved choices button
+  const viewButton = document.createElement("button");
+  viewButton.className = "save-button";
+  viewButton.textContent = "View Saved Choices";
+  viewButton.style.backgroundColor = "#2196F3";
+  viewButton.style.width = "150px"; // Fixed width for both buttons
+  viewButton.style.position = "relative"; // Ensure button is positioned properly
+  viewButton.style.display = "block"; // Ensure button is visible
+  viewButton.onclick = () => (window.location.href = "/choices/");
+  viewButton.addEventListener("mouseover", () => {
+    viewButton.style.backgroundColor = "#1976D2";
+  });
+  viewButton.addEventListener("mouseout", () => {
+    viewButton.style.backgroundColor = "#2196F3";
+  });
+
   // Add save button
   const saveButton = document.createElement("button");
   saveButton.className = "save-button";
   saveButton.textContent = "Save Progress";
+  saveButton.style.width = "150px"; // Same width as view button
+  saveButton.style.position = "relative"; // Ensure button is positioned properly
+  saveButton.style.display = "block"; // Ensure button is visible
   saveButton.addEventListener("click", saveToSupabase);
-  container.appendChild(saveButton);
+
+  // Add buttons to container
+  buttonContainer.appendChild(viewButton);
+  buttonContainer.appendChild(saveButton);
+
+  // Add padding at the bottom of the container to prevent buttons from overlapping content
+  const padding = document.createElement("div");
+  padding.style.height = "100px"; // Adjust this value as needed
+  container.appendChild(padding);
+
+  container.appendChild(buttonContainer);
 }
 
 async function convertImageToBase64(imageUrl) {
@@ -373,116 +412,143 @@ async function convertImageToBase64(imageUrl) {
   }
 }
 
-async function initializeAttractions() {
-  renderAttractions(); // First render with placeholders
+async function saveToSupabase() {
+  const saveButton = document.querySelector(".save-button");
+  const originalText = saveButton.textContent;
 
-  // Try to load cached images from localStorage
+  try {
+    // Show loading state
+    saveButton.disabled = true;
+    saveButton.textContent = "Saving...";
+
+    // Collect state of all attractions
+    const checklistData = {};
+    Object.entries(dailyAttractions).forEach(([day, attractions]) => {
+      checklistData[day] = attractions.map((attraction) => {
+        const attractionElements = Array.from(
+          document.querySelectorAll(".attraction-item")
+        );
+        const attractionElement = attractionElements.find(
+          (element) =>
+            element.querySelector(".attraction-name").textContent ===
+            attraction.name
+        );
+
+        return {
+          ...attraction,
+          checked: attractionElement
+            ? attractionElement.querySelector(".checkbox").checked
+            : false,
+        };
+      });
+    });
+
+    // Create Supabase client using the global supabase object
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Insert data using Supabase client
+    const { data, error } = await supabase.from("destinations").insert({
+      checklist_data: checklistData,
+    });
+
+    if (error) throw error;
+
+    // Show success state briefly
+    saveButton.textContent = "Saved!";
+    saveButton.style.backgroundColor = "#45a049";
+
+    // Reset button after 2 seconds
+    setTimeout(() => {
+      saveButton.textContent = originalText;
+      saveButton.disabled = false;
+      saveButton.style.backgroundColor = "#4CAF50";
+    }, 2000);
+  } catch (error) {
+    console.error("Error saving to Supabase:", error);
+
+    // Show error state briefly
+    saveButton.textContent = "Failed to Save";
+    saveButton.style.backgroundColor = "#ff4444";
+
+    // Reset button after 2 seconds
+    setTimeout(() => {
+      saveButton.textContent = originalText;
+      saveButton.disabled = false;
+      saveButton.style.backgroundColor = "#4CAF50";
+    }, 2000);
+
+    alert(`Failed to save progress: ${error.message}`);
+  }
+}
+
+async function initializeAttractions() {
+  // First render with placeholders
+  renderAttractions();
+
+  // Load cached images
   const cachedImages = JSON.parse(
     localStorage.getItem("attractionImages") || "{}"
   );
 
-  try {
-    const updatedImages = {};
+  // Apply cached images immediately
+  for (const [day, attractions] of Object.entries(dailyAttractions)) {
+    for (const attraction of attractions) {
+      if (cachedImages[attraction.name]) {
+        attraction.image = cachedImages[attraction.name];
+      } else {
+        attraction.image = "https://via.placeholder.com/120x80?text=Loading...";
+      }
+    }
+  }
+  renderAttractions(); // Re-render with cached images
 
-    for (const [day, attractions] of Object.entries(dailyAttractions)) {
-      for (const attraction of attractions) {
-        try {
-          // Check if we have a cached image
-          if (cachedImages[attraction.name]) {
-            attraction.image = cachedImages[attraction.name];
-            continue;
-          }
+  // Load new images in parallel
+  const imagePromises = [];
+  const updatedImages = {};
 
-          const imageUrl = await getFlickrImageUrl(
-            attraction.searchTerm || attraction.name
-          );
+  for (const [day, attractions] of Object.entries(dailyAttractions)) {
+    for (const attraction of attractions) {
+      if (!cachedImages[attraction.name]) {
+        const promise = (async () => {
+          try {
+            const imageUrl = await getFlickrImageUrl(
+              attraction.searchTerm || attraction.name
+            );
 
-          if (imageUrl && !imageUrl.includes("placeholder")) {
-            // Convert image to base64 and store it
-            const base64Image = await convertImageToBase64(imageUrl);
-            if (base64Image) {
-              attraction.image = base64Image;
-              updatedImages[attraction.name] = base64Image;
-            } else {
-              attraction.image =
-                "https://via.placeholder.com/120x80?text=No+Image";
-              updatedImages[attraction.name] = attraction.image;
+            if (imageUrl && !imageUrl.includes("placeholder")) {
+              const base64Image = await convertImageToBase64(imageUrl);
+              if (base64Image) {
+                attraction.image = base64Image;
+                updatedImages[attraction.name] = base64Image;
+              }
             }
-          } else {
-            attraction.image =
-              "https://via.placeholder.com/120x80?text=No+Image";
+          } catch (error) {
+            console.warn(`Failed to load image for ${attraction.name}:`, error);
+            attraction.image = "https://via.placeholder.com/120x80?text=Error";
             updatedImages[attraction.name] = attraction.image;
           }
-        } catch (error) {
-          console.warn(`Failed to load image for ${attraction.name}:`, error);
-          attraction.image = "https://via.placeholder.com/120x80?text=Error";
-          updatedImages[attraction.name] = attraction.image;
-        }
+        })();
+        imagePromises.push(promise);
       }
     }
-
-    // Update the cache with new images
-    localStorage.setItem(
-      "attractionImages",
-      JSON.stringify({
-        ...cachedImages,
-        ...updatedImages,
-      })
-    );
-
-    renderAttractions(); // Re-render with actual images
-  } catch (error) {
-    console.error("Failed to initialize attractions:", error);
   }
-}
 
+  // Wait for all images to load (or fail) in batches of 3
+  const batchSize = 3;
+  for (let i = 0; i < imagePromises.length; i += batchSize) {
+    const batch = imagePromises.slice(i, i + batchSize);
+    await Promise.all(batch);
+    renderAttractions(); // Re-render after each batch
+  }
+
+  // Update cache with new images
+  localStorage.setItem(
+    "attractionImages",
+    JSON.stringify({
+      ...cachedImages,
+      ...updatedImages,
+    })
+  );
+}
 // Call this instead of directly rendering
 initializeAttractions();
-
-// Add function to save data to Supabase
-async function saveToSupabase() {
-  try {
-    const checkedAttractions = [];
-    document.querySelectorAll(".attraction-item").forEach((item) => {
-      const checkbox = item.querySelector(".checkbox");
-      const name = item.querySelector(".attraction-name").textContent;
-      const area = item
-        .querySelector(".attraction-area")
-        .textContent.replace("📍 ", "");
-      const details = item.querySelector(".attraction-details").textContent;
-
-      if (checkbox.checked) {
-        checkedAttractions.push({
-          destination_name: name, // Changed to match table column
-          area: area,
-          details: details,
-          checked: true,
-          checked_at: new Date().toISOString(),
-        });
-      }
-    });
-
-    // Using the 'destinations' table instead of 'locations'
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/destinations`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(checkedAttractions),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Failed to save data: ${response.status} ${response.statusText}`
-      );
-    }
-
-    alert("Progress saved successfully!");
-  } catch (error) {
-    console.error("Error saving to Supabase:", error);
-    alert("Failed to save progress. Please try again.");
-  }
-}
